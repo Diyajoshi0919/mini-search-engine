@@ -1,0 +1,20 @@
+Computer networking is the practice of connecting computers to share resources and communicate.
+The OSI model has seven layers Physical DataLink Network Transport Session Presentation Application.
+The TCP IP model simplifies the OSI model into four layers Network Interface Internet Transport Application.
+IP addresses are unique numerical labels assigned to devices on a network for identification.
+IPv4 uses 32 bit addresses written as four decimal octets separated by dots like 192.168.1.1.
+IPv6 uses 128 bit addresses written in hexadecimal to support a vastly larger address space.
+TCP Transmission Control Protocol provides reliable ordered and error checked delivery of data.
+UDP User Datagram Protocol provides fast connectionless communication without delivery guarantees.
+A socket is a software endpoint that establishes bidirectional communication between two machines.
+Port numbers from 0 to 65535 identify specific applications or services running on a networked device.
+HTTP HyperText Transfer Protocol is the foundation of data communication on the World Wide Web.
+HTTPS adds TLS encryption to HTTP to secure data transmission between client and server.
+DNS Domain Name System translates human readable domain names into machine readable IP addresses.
+A router forwards data packets between computer networks based on IP routing tables.
+A subnet mask divides an IP address into network and host portions for routing purposes.
+The three way handshake in TCP involves SYN SYN ACK and ACK packets to establish a connection.
+A firewall monitors and controls incoming and outgoing network traffic based on security rules.
+NAT Network Address Translation allows multiple devices to share a single public IP address.
+WebSockets provide full duplex communication channels over a single TCP connection in real time.
+REST Representational State Transfer is an architectural style for designing networked APIs using HTTP.

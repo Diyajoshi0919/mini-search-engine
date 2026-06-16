@@ -1,0 +1,20 @@
+An operating system is software that manages hardware resources and provides services to programs.
+The kernel is the core of an operating system that manages CPU memory and device interactions.
+Process management involves creating scheduling and terminating processes running on the system.
+A process is an instance of a running program with its own memory space and system resources.
+A thread is the smallest unit of execution within a process sharing the same memory space.
+Multithreading allows multiple threads to run concurrently improving performance on multicore CPUs.
+Context switching is the process of saving and restoring process state when the CPU switches tasks.
+CPU scheduling algorithms like FCFS Round Robin and Priority determine the order of execution.
+Virtual memory allows programs to use more memory than physically available using disk as extension.
+Paging divides virtual memory into fixed size pages mapped to physical memory frames.
+Segmentation divides memory into variable sized segments based on logical program structure.
+Deadlock occurs when two or more processes wait indefinitely for resources held by each other.
+The four conditions for deadlock are mutual exclusion hold and wait no preemption and circular wait.
+Semaphores are synchronization primitives used to control access to shared resources between threads.
+Mutex or mutual exclusion lock ensures only one thread accesses a critical section at a time.
+File systems organize and store files on storage devices managing space allocation and retrieval.
+The FAT file system uses a file allocation table to track which disk clusters belong to each file.
+NTFS is the default Windows file system supporting large files encryption and journaling.
+Inter process communication IPC methods include pipes sockets shared memory and message queues.
+System calls provide the interface between user programs and the operating system kernel services.

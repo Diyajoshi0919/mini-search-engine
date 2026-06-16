@@ -1,0 +1,20 @@
+Object oriented programming OOP organizes code around objects that combine data and behavior.
+A class is a blueprint or template that defines the properties and methods of an object type.
+An object is an instance of a class created at runtime with its own copy of instance variables.
+Encapsulation bundles data and methods together and restricts direct access to internal state.
+Inheritance allows a child class to acquire properties and methods of a parent class.
+Polymorphism allows objects of different classes to be treated as objects of a common parent class.
+Method overriding allows a child class to provide a specific implementation of a parent method.
+Method overloading allows multiple methods with the same name but different parameters in a class.
+Abstraction hides complex implementation details and exposes only essential features to the user.
+Abstract classes cannot be instantiated and must be subclassed to provide concrete implementations.
+Interfaces define a contract of methods that implementing classes must provide.
+The constructor is a special method called when an object is created to initialize its state.
+The this or self keyword refers to the current object instance inside class methods.
+Static methods belong to the class itself rather than any particular instance of the class.
+Design patterns are reusable solutions to commonly occurring software design problems.
+The singleton pattern ensures only one instance of a class exists throughout the program.
+The factory pattern creates objects without specifying the exact class to instantiate.
+The observer pattern defines a one to many dependency so objects are notified of state changes.
+SOLID principles are five design principles for writing maintainable and scalable object oriented code.
+Composition over inheritance favors building complex objects by combining simpler ones.

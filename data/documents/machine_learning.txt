@@ -1,0 +1,20 @@
+Machine learning is a subset of artificial intelligence where systems learn from data automatically.
+Supervised learning trains models on labeled input output pairs to make predictions on new data.
+Unsupervised learning finds hidden patterns in data without labeled training examples.
+Reinforcement learning trains agents to make decisions by rewarding correct actions over time.
+Linear regression predicts a continuous output value based on one or more input features.
+Logistic regression predicts the probability of a binary class label for classification tasks.
+Decision trees split data based on feature values to create a tree of classification rules.
+Random forests combine multiple decision trees to reduce overfitting and improve accuracy.
+Support vector machines find the optimal hyperplane that maximally separates different classes.
+Neural networks are computing systems inspired by biological brains with layers of connected nodes.
+Deep learning uses neural networks with many hidden layers to learn complex feature representations.
+Convolutional neural networks CNNs are specialized for processing grid structured data like images.
+Recurrent neural networks RNNs process sequential data by maintaining hidden state across time steps.
+Overfitting occurs when a model learns training data too well and fails to generalize to new data.
+Underfitting occurs when a model is too simple to capture the underlying patterns in the data.
+Training set is used to train the model validation set for tuning and test set for final evaluation.
+Gradient descent is an optimization algorithm that minimizes loss by updating weights iteratively.
+Backpropagation calculates gradients of the loss function with respect to weights using chain rule.
+Feature engineering involves creating or transforming input variables to improve model performance.
+Model evaluation metrics include accuracy precision recall F1 score and AUC ROC curve.

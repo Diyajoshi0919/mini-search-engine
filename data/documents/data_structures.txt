@@ -1,0 +1,20 @@
+Data structures are specialized formats for organizing processing and storing data efficiently.
+Arrays store elements of the same type in contiguous memory locations with O1 access time by index.
+Linked lists consist of nodes where each node holds data and a pointer to the next node.
+Doubly linked lists allow traversal in both directions using next and previous pointers.
+Stacks follow the Last In First Out LIFO principle and support push pop and peek operations.
+Queues follow the First In First Out FIFO principle and support enqueue and dequeue operations.
+A deque or double ended queue allows insertion and deletion from both front and rear ends.
+Binary trees are hierarchical structures where each node has at most two children called left and right.
+Binary search trees maintain the property that left child is smaller and right child is larger than root.
+AVL trees are self balancing binary search trees that maintain height balance for efficient operations.
+Heaps are complete binary trees where parent nodes are always greater or smaller than their children.
+Hash tables use a hash function to map keys to indices enabling average O1 insertion and lookup.
+Collision resolution in hash tables is handled using chaining or open addressing techniques.
+Graphs consist of vertices and edges and can be directed undirected weighted or unweighted.
+Adjacency matrix represents a graph as a 2D array with space complexity of O V squared.
+Adjacency list represents a graph as an array of lists with better space efficiency for sparse graphs.
+Tries are tree like data structures used for efficient string prefix searching and autocomplete features.
+Segment trees allow efficient range query and range update operations on arrays in O log n time.
+Fenwick trees or binary indexed trees support prefix sum queries and point updates efficiently.
+Inverted indexes map words to the list of documents containing them enabling fast full text search.

@@ -1,0 +1,20 @@
+Python is a high-level interpreted programming language created by Guido van Rossum in 1991.
+Python emphasizes code readability and uses indentation to define code blocks.
+Python supports multiple programming paradigms including object oriented procedural and functional programming.
+Variables in Python are dynamically typed and do not require explicit type declarations.
+Python lists are ordered mutable collections that can store elements of different data types.
+Tuples in Python are immutable ordered collections defined using parentheses.
+Dictionaries in Python store key value pairs and provide fast lookup using hash tables.
+Sets in Python are unordered collections of unique elements used for membership testing.
+Python functions are defined using the def keyword and support default arguments and keyword arguments.
+Lambda functions in Python are anonymous single expression functions defined using the lambda keyword.
+Python classes support inheritance encapsulation and polymorphism for object oriented design.
+List comprehensions in Python provide a concise way to create lists using a single line expression.
+Python generators use the yield keyword to produce values lazily saving memory for large datasets.
+Exception handling in Python uses try except finally blocks to manage runtime errors gracefully.
+Python modules are files containing reusable code that can be imported using the import statement.
+The Python standard library includes modules for file handling networking math datetime and more.
+Virtual environments in Python isolate project dependencies preventing version conflicts between projects.
+Python decorators are higher order functions that modify the behavior of other functions or classes.
+The requests library in Python is used for making HTTP calls to external APIs and web services.
+Python is widely used in web development data science machine learning automation and scripting.

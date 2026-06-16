@@ -1,0 +1,20 @@
+A database is an organized collection of structured data stored and accessed electronically.
+Relational databases store data in tables with rows and columns linked by relationships.
+SQL stands for Structured Query Language used to create read update and delete database records.
+The SELECT statement retrieves data from one or more database tables based on specified conditions.
+The WHERE clause filters rows based on a condition in SELECT UPDATE and DELETE statements.
+JOIN operations combine rows from two or more tables based on a related column between them.
+INNER JOIN returns only rows where there is a match in both tables being joined.
+LEFT JOIN returns all rows from the left table and matching rows from the right table.
+Primary keys uniquely identify each row in a database table and cannot be null or duplicate.
+Foreign keys establish relationships between tables by referencing the primary key of another table.
+Indexes are data structures that speed up data retrieval at the cost of additional storage space.
+Database normalization reduces data redundancy by organizing columns and tables efficiently.
+First normal form 1NF requires that each column contains atomic indivisible values.
+Second normal form 2NF requires that non key attributes depend on the entire primary key.
+Third normal form 3NF requires that non key attributes do not depend on other non key attributes.
+Transactions in databases are sequences of operations that must all succeed or all fail together.
+ACID properties stand for Atomicity Consistency Isolation and Durability in database transactions.
+SQLite is a serverless self contained database engine that stores data in a single file.
+NoSQL databases like MongoDB store data as flexible documents instead of rigid table structures.
+Database views are virtual tables defined by a query that simplifies complex data access patterns.

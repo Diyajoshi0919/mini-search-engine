@@ -1,0 +1,20 @@
+Web development is the work involved in building and maintaining websites and web applications.
+HTML HyperText Markup Language defines the structure and semantic content of web pages.
+CSS Cascading Style Sheets controls the visual presentation layout and styling of HTML elements.
+JavaScript is a scripting language that adds interactivity and dynamic behavior to web pages.
+The DOM Document Object Model is a programming interface representing HTML as a tree structure.
+React is a JavaScript library developed by Meta for building reusable user interface components.
+Virtual DOM in React is an in memory representation that efficiently updates only changed elements.
+Node.js is a JavaScript runtime built on V8 engine allowing JavaScript to run on the server side.
+Express is a minimal web framework for Node.js used to build REST APIs and web applications.
+REST API uses HTTP methods GET POST PUT DELETE to perform CRUD operations on resources.
+JSON JavaScript Object Notation is a lightweight text format for exchanging data between systems.
+Fetch API and axios are used in JavaScript to make asynchronous HTTP requests to backend servers.
+Flask is a lightweight Python web framework ideal for building small to medium REST APIs.
+CORS Cross Origin Resource Sharing controls which domains can access resources on a web server.
+WebSockets enable real time bidirectional communication between browser and server over TCP.
+Responsive design uses CSS media queries to adapt layout for different screen sizes and devices.
+LocalStorage and SessionStorage allow browsers to store key value data on the client side.
+Authentication using JWT JSON Web Tokens allows stateless user session management in APIs.
+SQL injection is a security vulnerability where malicious SQL code is inserted into input fields.
+Version control with Git allows developers to track changes collaborate and manage code history.

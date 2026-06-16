@@ -1,0 +1,20 @@
+Git is a distributed version control system that tracks changes in source code during development.
+A repository or repo is a directory where Git tracks all changes to files over time.
+The git init command initializes a new empty Git repository in the current directory.
+The git clone command copies an existing remote repository to your local machine.
+The working directory contains the actual files you are currently editing on your computer.
+The staging area or index holds changes that are ready to be included in the next commit.
+The git add command moves changes from the working directory to the staging area.
+The git commit command saves staged changes to the repository with a descriptive message.
+A branch in Git is a lightweight movable pointer to a specific commit in the repository history.
+The main or master branch is the default primary branch of a Git repository.
+The git branch command lists creates or deletes branches in the repository.
+The git checkout or git switch command moves between branches or restores files.
+Merging combines changes from one branch into another resolving any conflicts that arise.
+A merge conflict occurs when two branches modify the same line of a file differently.
+Rebasing moves or combines a sequence of commits to a new base commit for a cleaner history.
+The git pull command fetches changes from a remote repository and merges them into current branch.
+The git push command uploads local commits to a remote repository like GitHub or GitLab.
+GitHub is a cloud based platform for hosting Git repositories and collaborating on code.
+A pull request is a request to merge code from one branch into another after review.
+The git log command shows the commit history with messages timestamps and author information.

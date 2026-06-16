@@ -1,0 +1,20 @@
+An algorithm is a step by step procedure for solving a problem or accomplishing a task.
+Time complexity measures how runtime grows with input size using Big O notation.
+Space complexity measures how memory usage grows with input size.
+O1 constant time means the operation takes the same time regardless of input size.
+O log n logarithmic time occurs in algorithms that halve the problem size each step like binary search.
+On linear time means runtime grows proportionally with input size like a single loop.
+On log n time is typical for efficient sorting algorithms like merge sort and heap sort.
+On squared quadratic time occurs in nested loops like bubble sort and insertion sort.
+Bubble sort repeatedly swaps adjacent elements until the array is sorted with On squared complexity.
+Selection sort finds the minimum element and places it at the correct position in each pass.
+Insertion sort builds the sorted array one element at a time and is efficient for small datasets.
+Merge sort is a divide and conquer algorithm that splits sorts and merges subarrays recursively.
+Quick sort selects a pivot partitions the array and recursively sorts both halves.
+Binary search finds a target in a sorted array by repeatedly halving the search space in O log n.
+Breadth first search BFS explores a graph level by level using a queue data structure.
+Depth first search DFS explores as far as possible along each branch before backtracking using a stack.
+Dijkstra algorithm finds shortest paths from a source vertex in a weighted graph with non negative edges.
+Dynamic programming solves problems by breaking them into overlapping subproblems and storing results.
+Memoization stores the results of expensive function calls to avoid redundant computation.
+Greedy algorithms make locally optimal choices at each step hoping to find the global optimum.
