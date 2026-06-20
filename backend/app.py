@@ -64,12 +64,14 @@ def search_endpoint():
     if not os.path.exists(DB_PATH):
         return jsonify({"error": "Search index not found. Please run indexer.py first."}), 500
 
-    results = search(query, DB_PATH, DOCS_FOLDER, top_n=limit)
+    outcome = search(query, DB_PATH, DOCS_FOLDER, top_n=limit)
 
     return jsonify({
         "query": query,
-        "total_results": len(results),
-        "results": results
+        "total_results": len(outcome["results"]),
+        "results": outcome["results"],
+        "search_time_ms": outcome["search_time_ms"],
+        "parsed_query": outcome["parsed_query"]
     })
 
 
@@ -93,6 +95,9 @@ def stats():
     cursor.execute("SELECT COUNT(DISTINCT word) FROM index_entries")
     word_count = cursor.fetchone()[0]
 
+    cursor.execute("SELECT COALESCE(SUM(total_words), 0) FROM documents")
+    total_words_indexed = cursor.fetchone()[0]
+
     cursor.execute("SELECT COUNT(*) FROM index_entries")
     entry_count = cursor.fetchone()[0]
 
@@ -104,6 +109,7 @@ def stats():
     return jsonify({
         "documents_indexed": doc_count,
         "unique_words": word_count,
+        "total_words_indexed": total_words_indexed,
         "total_index_entries": entry_count,
         "files": filenames
     })

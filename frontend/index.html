@@ -222,6 +222,75 @@
             margin-bottom: 5px;
         }
 
+        /* ── Analytics bar ── */
+        .analytics-bar {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 12px 24px 0;
+            display: flex;
+            gap: 18px;
+            flex-wrap: wrap;
+            font-size: 12px;
+            color: #5f6368;
+        }
+        .analytics-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: white;
+            border: 1px solid #e8eaed;
+            border-radius: 14px;
+            padding: 5px 12px;
+        }
+        .analytics-item strong { color: #202124; }
+
+        /* ── Frequency breakdown ── */
+        .freq-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+        .freq-chip {
+            font-size: 11px;
+            background: #f1f3f4;
+            color: #3c4043;
+            padding: 2px 8px;
+            border-radius: 8px;
+        }
+        .freq-chip b { color: #1a73e8; }
+
+        /* ── Advanced search hint ── */
+        .advanced-toggle {
+            background: none;
+            border: none;
+            color: #1a73e8;
+            font-size: 12px;
+            cursor: pointer;
+            text-decoration: underline;
+            margin-top: 10px;
+        }
+        .advanced-tips {
+            display: none;
+            background: white;
+            border: 1px solid #e8eaed;
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-top: 10px;
+            font-size: 12px;
+            color: #3c4043;
+            text-align: left;
+            max-width: 480px;
+        }
+        .advanced-tips.show { display: block; }
+        .advanced-tips code {
+            background: #f1f3f4;
+            padding: 1px 5px;
+            border-radius: 4px;
+            color: #1a73e8;
+        }
+        .advanced-tips div { margin-bottom: 5px; }
+
         /* ── Upload Page ── */
         .upload-page {
             max-width: 700px;
@@ -436,6 +505,15 @@
         <span class="chip" onclick="quickSearch('git github')">git github</span>
     </div>
 
+    <button class="advanced-toggle" onclick="toggleAdvancedTips('homepage-tips')">⚙ Advanced search syntax</button>
+    <div class="advanced-tips" id="homepage-tips">
+        <div><code>"exact phrase"</code> — match an exact phrase</div>
+        <div><code>term1 OR term2</code> — match either term</div>
+        <div><code>term1 AND term2</code> — match both (default between words)</div>
+        <div><code>filename:notes.txt</code> — only search a specific file</div>
+        <div>Example: <code>filename:python_basics.txt "machine learning" OR java</code></div>
+    </div>
+
     <div style="margin-top: 32px;">
         <button class="browse-btn" onclick="showUploadPage()" style="background:#34a853">
             📁 Manage Documents
@@ -455,10 +533,18 @@
                 <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 14 15.5l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
             </button>
         </div>
+        <button class="advanced-toggle" style="margin:0; white-space:nowrap;" onclick="toggleAdvancedTips('results-tips')">⚙ syntax</button>
         <div class="header-tabs">
             <button class="tab-btn active" onclick="showTab('search')">🔍 Search</button>
             <button class="tab-btn" onclick="showUploadPage()">📁 Documents</button>
         </div>
+    </div>
+    <div id="analytics-bar" class="analytics-bar"></div>
+    <div class="advanced-tips" id="results-tips" style="margin:12px auto 0; max-width:720px;">
+        <div><code>"exact phrase"</code> — match an exact phrase</div>
+        <div><code>term1 OR term2</code> — match either term</div>
+        <div><code>term1 AND term2</code> — match both (default between words)</div>
+        <div><code>filename:notes.txt</code> — only search a specific file</div>
     </div>
     <div id="results-output" class="results-container"></div>
 </div>
@@ -606,23 +692,49 @@
         document.getElementById('header-input').value = query;
 
         const output = document.getElementById('results-output');
+        const analyticsBar = document.getElementById('analytics-bar');
+        analyticsBar.innerHTML = '';
         output.innerHTML = `<div class="loading"><div class="spinner"></div><p>Searching for "<strong>${escapeHtml(query)}</strong>"...</p></div>`;
 
         try {
-            const res = await fetch(`${API}/search?q=${encodeURIComponent(query)}&limit=5`);
-            if (!res.ok) throw new Error(`Server error: ${res.status}`);
-            const data = await res.json();
+            const [searchRes, statsRes] = await Promise.all([
+                fetch(`${API}/search?q=${encodeURIComponent(query)}&limit=5`),
+                fetch(`${API}/stats`).catch(() => null)
+            ]);
+
+            if (!searchRes.ok) throw new Error(`Server error: ${searchRes.status}`);
+            const data = await searchRes.json();
+
+            let stats = null;
+            if (statsRes && statsRes.ok) stats = await statsRes.json();
+
+            renderAnalyticsBar(stats, data.search_time_ms);
             renderResults(data, query);
         } catch (err) {
             output.innerHTML = `<div class="error-msg"><p style="font-size:36px">⚠️</p><p><strong>Cannot connect to server.</strong></p><p style="font-size:13px;margin-top:8px">Make sure <code>python backend/app.py</code> is running.</p></div>`;
         }
     }
 
+    function renderAnalyticsBar(stats, searchTimeMs) {
+        const bar = document.getElementById('analytics-bar');
+        const items = [];
+
+        if (stats) {
+            items.push(`<div class="analytics-item">📚 <strong>${stats.documents_indexed}</strong> docs indexed</div>`);
+            items.push(`<div class="analytics-item">📝 <strong>${stats.total_words_indexed}</strong> words indexed</div>`);
+        }
+        if (typeof searchTimeMs === 'number') {
+            items.push(`<div class="analytics-item">⚡ search took <strong>${searchTimeMs} ms</strong></div>`);
+        }
+
+        bar.innerHTML = items.join('');
+    }
+
     function renderResults(data, query) {
         const output = document.getElementById('results-output');
 
         if (data.total_results === 0) {
-            output.innerHTML = `<div class="no-results"><p style="font-size:36px">🔍</p><p><strong>No results for "${escapeHtml(query)}"</strong></p><p style="font-size:13px;margin-top:8px">Try different keywords.</p></div>`;
+            output.innerHTML = `<div class="no-results"><p style="font-size:36px">🔍</p><p><strong>No results for "${escapeHtml(query)}"</strong></p><p style="font-size:13px;margin-top:8px">Try different keywords, or check <code>⚙ Advanced search syntax</code> on the home page.</p></div>`;
             return;
         }
 
@@ -630,12 +742,17 @@
 
         for (const r of data.results) {
             const matchBadges = r.matched_words.map(w => `<span class="badge badge-match">✓ ${escapeHtml(w)}</span>`).join('');
+            const freq = r.word_frequencies || {};
+            const freqChips = Object.entries(freq)
+                .map(([w, count]) => `<span class="freq-chip">${escapeHtml(w)} <b>×${count}</b></span>`)
+                .join('');
             const snippets = r.snippets.map(s => `<div class="snippet">${highlightWords(escapeHtml(s), r.matched_words)}</div>`).join('');
 
             html += `
                 <div class="result-card">
                     <div class="result-filename">📄 ${escapeHtml(r.filename)}</div>
                     <div class="result-meta"><span class="badge badge-score">Score: ${r.score}</span>${matchBadges}</div>
+                    <div class="freq-list">${freqChips}</div>
                     <div>${snippets}</div>
                 </div>`;
         }
@@ -779,11 +896,20 @@
 
     function highlightWords(text, words) {
         let result = text;
-        for (const word of words) {
-            const regex = new RegExp(`\\b(${word})\\b`, 'gi');
+        for (const raw of words) {
+            // Phrases come through as `"some phrase"` — strip the quotes and
+            // match the whole phrase rather than splitting on word boundaries
+            const word = raw.replace(/^"|"$/g, '');
+            const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const pattern = word.includes(' ') ? `(${escaped})` : `\\b(${escaped})\\b`;
+            const regex = new RegExp(pattern, 'gi');
             result = result.replace(regex, '<strong style="color:#1a73e8">$1</strong>');
         }
         return result;
+    }
+
+    function toggleAdvancedTips(id) {
+        document.getElementById(id).classList.toggle('show');
     }
 
     function escapeHtml(str) {
