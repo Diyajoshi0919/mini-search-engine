@@ -1,19 +1,8 @@
-"""
-APP.PY — The Flask REST API Server
-
-Endpoints:
-    GET  /              → Health check
-    GET  /search?q=...  → Search and return results as JSON
-    GET  /stats         → Index statistics
-    POST /upload        → Upload a .txt file, auto re-index it
-    GET  /documents     → List all uploaded documents
-    DELETE /documents/<filename> → Delete a document and re-index
-"""
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
 import sys
+import sqlite3
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -28,10 +17,6 @@ DB_PATH = os.path.join(BASE_DIR, "data", "search_index.db")
 DOCS_FOLDER = os.path.join(BASE_DIR, "data", "documents")
 
 
-# ─────────────────────────────────────────────
-# Route 1: Health Check
-# ─────────────────────────────────────────────
-
 @app.route('/')
 def home():
     return jsonify({
@@ -45,10 +30,6 @@ def home():
         }
     })
 
-
-# ─────────────────────────────────────────────
-# Route 2: Search
-# ─────────────────────────────────────────────
 
 @app.route('/search')
 def search_endpoint():
@@ -75,14 +56,8 @@ def search_endpoint():
     })
 
 
-# ─────────────────────────────────────────────
-# Route 3: Stats
-# ─────────────────────────────────────────────
-
 @app.route('/stats')
 def stats():
-    import sqlite3
-
     if not os.path.exists(DB_PATH):
         return jsonify({"error": "Index not found"}), 404
 
@@ -115,55 +90,26 @@ def stats():
     })
 
 
-# ─────────────────────────────────────────────
-# Route 4: Upload Document
-# ─────────────────────────────────────────────
-
 @app.route('/upload', methods=['POST'])
 def upload_document():
-    """
-    Accepts a .txt file upload from the browser.
-
-    What happens step by step:
-    1. Browser sends a POST request with the file attached
-    2. Flask reads the file from the request
-    3. We validate — only .txt files allowed
-    4. Save the file to data/documents/ folder
-    5. Re-run the indexer so the new file is searchable immediately
-    6. Return success response
-
-    Why re-index everything and not just the new file?
-    Simplicity. For a small document set this is fast enough.
-    In production you would do incremental indexing.
-    """
-
-    # Check if file was actually sent in the request
-    # request.files is a dict of uploaded files
     if 'file' not in request.files:
         return jsonify({"error": "No file sent. Use key 'file' in form data."}), 400
 
     file = request.files['file']
 
-    # Empty filename means user submitted without selecting a file
     if file.filename == '':
         return jsonify({"error": "No file selected."}), 400
 
-    # Only allow .txt files — reject everything else
     if not file.filename.endswith('.txt'):
         return jsonify({"error": "Only .txt files are allowed."}), 400
 
-    # Sanitize filename — remove any path components for security
-    # e.g. "../../etc/passwd" becomes "passwd" — prevents path traversal attack
+    # basename strips any path components, blocks path traversal
     filename = os.path.basename(file.filename)
     save_path = os.path.join(DOCS_FOLDER, filename)
 
-    # Save the file to documents folder
     file.save(save_path)
-    print(f"📁 File saved: {filename}")
+    print(f"Saved: {filename}")
 
-    # Re-index all documents including the new one
-    # This rebuilds the entire SQLite index from scratch
-    print(f"🔄 Re-indexing all documents...")
     index_all_documents(DOCS_FOLDER, DB_PATH)
 
     return jsonify({
@@ -173,16 +119,8 @@ def upload_document():
     })
 
 
-# ─────────────────────────────────────────────
-# Route 5: List All Documents
-# ─────────────────────────────────────────────
-
 @app.route('/documents')
 def list_documents():
-    """
-    Returns a list of all .txt files currently in the documents folder.
-    The frontend uses this to show the document library.
-    """
     if not os.path.exists(DOCS_FOLDER):
         return jsonify({"documents": []})
 
@@ -195,18 +133,8 @@ def list_documents():
     })
 
 
-# ─────────────────────────────────────────────
-# Route 6: Delete a Document
-# ─────────────────────────────────────────────
-
 @app.route('/documents/<filename>', methods=['DELETE'])
 def delete_document(filename):
-    """
-    Deletes a document from the folder and re-indexes.
-    Called when user clicks the delete button on a document.
-    """
-
-    # Sanitize — prevent path traversal
     filename = os.path.basename(filename)
     file_path = os.path.join(DOCS_FOLDER, filename)
 
@@ -214,9 +142,8 @@ def delete_document(filename):
         return jsonify({"error": f"File '{filename}' not found."}), 404
 
     os.remove(file_path)
-    print(f"🗑️ Deleted: {filename}")
+    print(f"Deleted: {filename}")
 
-    # Re-index without the deleted file
     index_all_documents(DOCS_FOLDER, DB_PATH)
 
     return jsonify({
@@ -225,17 +152,8 @@ def delete_document(filename):
     })
 
 
-# ─────────────────────────────────────────────
-# Start Server
-# ─────────────────────────────────────────────
-
 if __name__ == "__main__":
-    print("\n🔍 Mini Search Engine API")
-    print("=" * 40)
-    print(f"   Database : {DB_PATH}")
-    print(f"   Documents: {DOCS_FOLDER}")
-    print(f"   Server   : http://localhost:5000")
-    print("=" * 40)
-    print("\n✅ Server starting...\n")
-
+    print(f"Database : {DB_PATH}")
+    print(f"Documents: {DOCS_FOLDER}")
+    print("Server   : http://localhost:5000")
     app.run(debug=True, port=5000)
