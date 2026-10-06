@@ -229,6 +229,50 @@
         }
         .chip:hover { background: #e8eaed; }
 
+        /* ── Autocomplete dropdown ── */
+        .suggest-box {
+            display: none;
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(32,33,36,0.22);
+            padding: 6px 0;
+            z-index: 200;
+            text-align: left;
+        }
+        .suggest-box.show { display: block; }
+        .suggest-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 7px 18px;
+            font-size: 15px;
+            color: #202124;
+            cursor: pointer;
+        }
+        .suggest-item svg { width: 16px; height: 16px; fill: #9aa0a6; flex-shrink: 0; }
+        .suggest-item:hover, .suggest-item.active { background: #f1f3f4; }
+        .suggest-item .typed { font-weight: 400; }
+        .suggest-item .completion { font-weight: 700; }
+
+        /* ── Spelling correction ── */
+        .spell-note {
+            font-size: 18px;
+            color: #202124;
+            margin-bottom: 18px;
+            line-height: 1.5;
+        }
+        .spell-note .small { font-size: 14px; color: #4d5156; }
+        .spell-link {
+            color: #1a0dab;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .spell-link:hover { text-decoration: underline; }
+
         /* ── Results ── */
         .results-container {
             max-width: 640px;
@@ -582,7 +626,12 @@
     <div class="homepage-search">
         <svg class="search-icon-left" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 14 15.5l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
         <input type="text" id="homepage-input" placeholder="Search for anything..."
-               onkeydown="handleKeydown(event, 'homepage-input')" />
+               autocomplete="off" role="combobox" aria-autocomplete="list"
+               aria-controls="homepage-input-suggest" aria-expanded="false"
+               onkeydown="handleKeydown(event, 'homepage-input')"
+               oninput="onSuggestInput('homepage-input')"
+               onblur="hideSuggestions('homepage-input')" />
+        <div class="suggest-box" id="homepage-input-suggest" role="listbox"></div>
         <button onclick="runSearch('homepage-input')">
             <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 14 15.5l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
         </button>
@@ -608,6 +657,7 @@
         <div><code>term1 OR term2</code> — match either term</div>
         <div><code>term1 AND term2</code> — match both (default between words)</div>
         <div><code>filename:notes.txt</code> — only search a specific file</div>
+        <div>Typos are fixed automatically: <code>pyhton</code> finds <code>python</code></div>
         <div>Example: <code>filename:python_programming.txt "machine learning" OR java</code></div>
     </div>
 </div>
@@ -622,7 +672,12 @@
         <div class="search-bar-wrapper">
             <svg class="search-icon-left" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 14 15.5l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
             <input class="search-input" type="text" id="header-input"
-                   placeholder="Search..." onkeydown="handleKeydown(event, 'header-input')" />
+                   placeholder="Search..." autocomplete="off" role="combobox"
+                   aria-autocomplete="list" aria-controls="header-input-suggest" aria-expanded="false"
+                   onkeydown="handleKeydown(event, 'header-input')"
+                   oninput="onSuggestInput('header-input')"
+                   onblur="hideSuggestions('header-input')" />
+            <div class="suggest-box" id="header-input-suggest" role="listbox"></div>
             <button class="search-btn" onclick="runSearch('header-input')">
                 <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 14 15.5l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
             </button>
@@ -730,7 +785,8 @@
         } else if (state.page === 'results') {
             show('results-page');
             document.getElementById('header-input').value = state.query || '';
-            if (pushHistory) history.pushState(state, '', `?page=results&q=${encodeURIComponent(state.query || '')}`);
+            const exactParam = state.exact ? '&exact=1' : '';
+            if (pushHistory) history.pushState(state, '', `?page=results&q=${encodeURIComponent(state.query || '')}${exactParam}`);
 
         } else if (state.page === 'upload') {
             show('upload-page');
@@ -751,9 +807,9 @@
         if (state.page === 'home') {
             navigateTo({ page: 'home' }, false);
         } else if (state.page === 'results') {
-            navigateTo({ page: 'results', query: state.query }, false);
+            navigateTo({ page: 'results', query: state.query, exact: state.exact }, false);
             // Re-fetch results for the query stored in history
-            fetchAndRenderResults(state.query);
+            fetchAndRenderResults(state.query, state.exact);
         } else if (state.page === 'upload') {
             navigateTo({ page: 'upload' }, false);
         }
@@ -769,22 +825,145 @@
 
     async function runSearch(inputId) {
         const query = document.getElementById(inputId).value.trim();
+        hideSuggestions(inputId, true);
         if (!query) return;
         await doSearch(query);
     }
 
     async function quickSearch(query) { await doSearch(query); }
 
-    function handleKeydown(e, inputId) { if (e.key === 'Enter') runSearch(inputId); }
-
-    async function doSearch(query) {
+    // exact = true turns off spelling correction ("Search instead for ...")
+    async function doSearch(query, exact = false) {
         // Push to browser history so back button works
-        navigateTo({ page: 'results', query });
-        await fetchAndRenderResults(query);
+        navigateTo({ page: 'results', query, exact });
+        await fetchAndRenderResults(query, exact);
+    }
+
+    // ── Autocomplete ──
+
+    // one entry per search box: current suggestions, highlighted row, debounce timer
+    const suggestState = {};
+    const SEARCH_ICON = '<svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 14 15.5l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>';
+
+    function getSuggestState(inputId) {
+        if (!suggestState[inputId]) suggestState[inputId] = { items: [], active: -1, timer: null };
+        return suggestState[inputId];
+    }
+
+    function onSuggestInput(inputId) {
+        const st = getSuggestState(inputId);
+        clearTimeout(st.timer);
+        // wait until typing pauses for 150 ms, so we don't send a request per keystroke
+        st.timer = setTimeout(() => fetchSuggestions(inputId), 150);
+    }
+
+    async function fetchSuggestions(inputId) {
+        const input = document.getElementById(inputId);
+        const typed = input.value;
+        if (typed.trim().length < 2) { hideSuggestions(inputId, true); return; }
+
+        try {
+            const res = await fetch(`${API}/suggest?q=${encodeURIComponent(typed)}&limit=6`);
+            if (!res.ok) return;
+            const data = await res.json();
+            // ignore stale responses that arrive after the user kept typing
+            if (input.value !== typed || document.activeElement !== input) return;
+            renderSuggestions(inputId, typed, data.suggestions || []);
+        } catch (err) {
+            // autocomplete is optional; a failed request just shows nothing
+        }
+    }
+
+    function renderSuggestions(inputId, typed, items) {
+        const st = getSuggestState(inputId);
+        const box = document.getElementById(`${inputId}-suggest`);
+        const input = document.getElementById(inputId);
+        st.items = items;
+        st.active = -1;
+
+        if (items.length === 0) { hideSuggestions(inputId, true); return; }
+
+        box.innerHTML = items.map((text, i) => {
+            // Google style: what you typed stays normal, the completion is bold
+            let label;
+            if (text.toLowerCase().startsWith(typed.toLowerCase())) {
+                label = `<span class="typed">${escapeHtml(text.slice(0, typed.length))}</span>` +
+                        `<span class="completion">${escapeHtml(text.slice(typed.length))}</span>`;
+            } else {
+                label = `<span class="completion">${escapeHtml(text)}</span>`;
+            }
+            return `<div class="suggest-item" role="option" id="${inputId}-opt-${i}" data-index="${i}">${SEARCH_ICON}<span>${label}</span></div>`;
+        }).join('');
+
+        box.querySelectorAll('.suggest-item').forEach(el => {
+            // mousedown fires before the input's blur, so the click isn't lost
+            el.addEventListener('mousedown', e => {
+                e.preventDefault();
+                chooseSuggestion(inputId, Number(el.dataset.index));
+            });
+        });
+
+        box.classList.add('show');
+        input.setAttribute('aria-expanded', 'true');
+    }
+
+    function highlightSuggestion(inputId, index) {
+        const st = getSuggestState(inputId);
+        const box = document.getElementById(`${inputId}-suggest`);
+        const input = document.getElementById(inputId);
+        st.active = index;
+        box.querySelectorAll('.suggest-item').forEach((el, i) => el.classList.toggle('active', i === index));
+        if (index >= 0) input.setAttribute('aria-activedescendant', `${inputId}-opt-${index}`);
+        else input.removeAttribute('aria-activedescendant');
+    }
+
+    function chooseSuggestion(inputId, index) {
+        const st = getSuggestState(inputId);
+        const text = st.items[index];
+        if (text === undefined) return;
+        document.getElementById(inputId).value = text;
+        runSearch(inputId);
+    }
+
+    function hideSuggestions(inputId, immediate = false) {
+        const close = () => {
+            const st = getSuggestState(inputId);
+            clearTimeout(st.timer);
+            st.items = [];
+            st.active = -1;
+            document.getElementById(`${inputId}-suggest`).classList.remove('show');
+            const input = document.getElementById(inputId);
+            input.setAttribute('aria-expanded', 'false');
+            input.removeAttribute('aria-activedescendant');
+        };
+        if (immediate) close(); else setTimeout(close, 100);
+    }
+
+    function handleKeydown(e, inputId) {
+        const st = getSuggestState(inputId);
+        const open = st.items.length > 0;
+
+        if (e.key === 'ArrowDown' && open) {
+            e.preventDefault();
+            highlightSuggestion(inputId, (st.active + 1) % st.items.length);
+        } else if (e.key === 'ArrowUp' && open) {
+            e.preventDefault();
+            highlightSuggestion(inputId, st.active <= 0 ? st.items.length - 1 : st.active - 1);
+        } else if (e.key === 'Escape' && open) {
+            hideSuggestions(inputId, true);
+        } else if (e.key === 'Tab' && open && st.active >= 0) {
+            // Tab fills in the highlighted suggestion without searching
+            e.preventDefault();
+            document.getElementById(inputId).value = st.items[st.active];
+            hideSuggestions(inputId, true);
+        } else if (e.key === 'Enter') {
+            if (open && st.active >= 0) chooseSuggestion(inputId, st.active);
+            else runSearch(inputId);
+        }
     }
 
     // Separated so popstate can re-render without pushing history again
-    async function fetchAndRenderResults(query) {
+    async function fetchAndRenderResults(query, exact = false) {
         document.getElementById('header-input').value = query;
 
         const output = document.getElementById('results-output');
@@ -794,7 +973,7 @@
 
         try {
             const [searchRes, statsRes] = await Promise.all([
-                fetch(`${API}/search?q=${encodeURIComponent(query)}&limit=5`),
+                fetch(`${API}/search?q=${encodeURIComponent(query)}&limit=5${exact ? '&exact=1' : ''}`),
                 fetch(`${API}/stats`).catch(() => null)
             ]);
 
@@ -836,7 +1015,18 @@
 
         const found = data.total_found ?? data.total_results;
         const shownNote = found > data.total_results ? ` (showing top ${data.total_results})` : '';
-        let html = `<div class="result-count">About <strong>${found}</strong> result(s) for "<strong>${escapeHtml(data.query)}</strong>"${shownNote}</div>`;
+        let html = '';
+
+        if (data.corrected_query) {
+            // nothing matched what was typed, so the backend searched the corrected spelling
+            html += `<div class="spell-note">Showing results for <a class="spell-link" data-q="${escapeHtml(data.corrected_query)}"><b><i>${escapeHtml(data.corrected_query)}</i></b></a>
+                <div class="small">Search instead for <a class="spell-link" data-q="${escapeHtml(data.query)}" data-exact="1">${escapeHtml(data.query)}</a></div></div>`;
+        } else if (data.did_you_mean) {
+            html += `<div class="spell-note">Did you mean: <a class="spell-link" data-q="${escapeHtml(data.did_you_mean)}"><b><i>${escapeHtml(data.did_you_mean)}</i></b></a></div>`;
+        }
+
+        const shownQuery = data.corrected_query || data.query;
+        html += `<div class="result-count">About <strong>${found}</strong> result(s) for "<strong>${escapeHtml(shownQuery)}</strong>"${shownNote}</div>`;
 
         for (const r of data.results) {
             const matchBadges = r.matched_words.map(w => `<span class="badge badge-match">${escapeHtml(w)}</span>`).join('');
@@ -868,6 +1058,11 @@
         }
 
         output.innerHTML = html;
+
+        // data attributes + listeners instead of inline onclick, so quotes in a query can't break the HTML
+        output.querySelectorAll('.spell-link').forEach(link => {
+            link.addEventListener('click', () => doSearch(link.dataset.q, link.dataset.exact === '1'));
+        });
     }
 
     // ── File Upload ──

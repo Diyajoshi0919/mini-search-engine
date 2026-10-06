@@ -6,7 +6,7 @@ import sqlite3
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from search import search
+from search import search, suggest
 from indexer import (
     create_database, index_document, remove_document,
     ensure_index, list_supported_files,
@@ -38,6 +38,7 @@ def home():
         "supported_file_types": sorted(SUPPORTED_EXTENSIONS),
         "endpoints": {
             "search": "/search?q=your+query",
+            "suggest": "/suggest?q=partial+que",
             "stats": "/stats",
             "upload": "POST /upload",
             "documents": "/documents"
@@ -49,6 +50,8 @@ def home():
 def search_endpoint():
     query = request.args.get('q', '').strip()
     limit = request.args.get('limit', 5, type=int)
+    # exact=1 turns off spelling correction ("Search instead for ...")
+    exact = request.args.get('exact', '0') == '1'
 
     if not query:
         return jsonify({"error": "Query parameter 'q' is required"}), 400
@@ -59,7 +62,7 @@ def search_endpoint():
     if not os.path.exists(DB_PATH):
         return jsonify({"error": "Search index not found. Please run indexer.py first."}), 500
 
-    outcome = search(query, DB_PATH, DOCS_FOLDER, top_n=limit)
+    outcome = search(query, DB_PATH, DOCS_FOLDER, top_n=limit, exact=exact)
 
     return jsonify({
         "query": query,
@@ -67,7 +70,24 @@ def search_endpoint():
         "total_found": outcome.get("total_found", len(outcome["results"])),
         "results": outcome["results"],
         "search_time_ms": outcome["search_time_ms"],
-        "parsed_query": outcome["parsed_query"]
+        "parsed_query": outcome["parsed_query"],
+        "corrected_query": outcome["corrected_query"],
+        "did_you_mean": outcome["did_you_mean"]
+    })
+
+
+@app.route('/suggest')
+def suggest_endpoint():
+    partial = request.args.get('q', '')
+    limit = request.args.get('limit', 6, type=int)
+    limit = max(1, min(limit, 10))
+
+    if not os.path.exists(DB_PATH):
+        return jsonify({"query": partial, "suggestions": []})
+
+    return jsonify({
+        "query": partial,
+        "suggestions": suggest(partial, DB_PATH, limit=limit)
     })
 
 

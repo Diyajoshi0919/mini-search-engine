@@ -4,6 +4,8 @@ import re
 import time
 import math
 
+from vocabulary import get_vocabulary
+
 
 def clean_word(word):
     word = word.lower()
@@ -88,21 +90,9 @@ def _escape_like(text):
     return text.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
 
 
-def search(query, db_path, docs_folder=None, top_n=5):
-    # docs_folder is no longer needed (text comes from the database) but is
-    # kept in the signature so existing callers don't break
-    start_time = time.perf_counter()
-
-    empty = {"results": [], "search_time_ms": 0.0, "parsed_query": None}
-
-    if not query.strip():
-        return empty
-
-    parsed = parse_query(query)
-
-    if not parsed["or_groups"]:
-        empty["parsed_query"] = parsed
-        return empty
+def _run_search(parsed, db_path, top_n):
+    """Find and rank documents for an already-parsed query."""
+    empty = {"results": [], "total_found": 0}
 
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -119,7 +109,6 @@ def search(query, db_path, docs_folder=None, top_n=5):
     total_docs = len(docs)
     if total_docs == 0:
         conn.close()
-        empty["parsed_query"] = parsed
         return empty
     avg_doc_len = sum(d["length"] for d in docs.values()) / total_docs
 
@@ -244,17 +233,147 @@ def search(query, db_path, docs_folder=None, top_n=5):
     conn.close()
 
     results.sort(key=lambda r: (-r["score"], r["filename"]))
-    total_found = len(results)
-    results = results[:top_n]
+    return {"results": results[:top_n], "total_found": len(results)}
 
-    elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
+# ── Typo tolerance ──
+
+
+def _correct_parsed(parsed, corrections):
+    """Copy of the parsed query with misspelled terms swapped for corrections."""
     return {
-        "results": results,
-        "total_found": total_found,
-        "search_time_ms": elapsed_ms,
-        "parsed_query": parsed
+        "filename_filter": parsed["filename_filter"],
+        "or_groups": [
+            [
+                {"type": "term", "value": corrections.get(t["value"], t["value"])}
+                if t["type"] == "term" else t
+                for t in group
+            ]
+            for group in parsed["or_groups"]
+        ],
     }
+
+
+def _rewrite_query(query, corrections):
+    """
+    Rebuild the query text with corrections applied, so the UI can show
+    "Showing results for ...". Quoted phrases, filename: filters and the
+    AND / OR operators are left exactly as the user typed them.
+    """
+    def fix(match):
+        token = match.group(0)
+        if token.startswith('"') or token.lower().startswith('filename:') or token in ("AND", "OR"):
+            return token
+        return corrections.get(clean_word(token), token)
+
+    return re.sub(r'"[^"]*"|filename:\S+|[^\s"]+', fix, query)
+
+
+def search(query, db_path, docs_folder=None, top_n=5, exact=False):
+    """
+    Search with automatic spelling correction.
+
+    - If the query finds nothing and some words aren't in the index, the
+      corrected query is searched instead (auto_corrected = True).
+    - If the query finds results but a word looks misspelled, the results
+      are kept and a "did you mean" suggestion is returned alongside them.
+    - exact=True turns correction off (the "Search instead for ..." link).
+
+    docs_folder is no longer needed (text comes from the database) but is
+    kept in the signature so existing callers don't break.
+    """
+    start_time = time.perf_counter()
+
+    outcome = {
+        "results": [],
+        "total_found": 0,
+        "search_time_ms": 0.0,
+        "parsed_query": None,
+        "corrected_query": None,   # what was actually searched, if auto-corrected
+        "did_you_mean": None,      # suggestion shown above results we did find
+    }
+
+    if not query.strip():
+        return outcome
+
+    parsed = parse_query(query)
+    outcome["parsed_query"] = parsed
+
+    if not parsed["or_groups"]:
+        return outcome
+
+    found = _run_search(parsed, db_path, top_n)
+    outcome.update(found)
+
+    if not exact:
+        vocab = get_vocabulary(db_path)
+        terms = {t["value"] for g in parsed["or_groups"] for t in g if t["type"] == "term"}
+        corrections = {}
+        if vocab is not None:
+            for term in terms:
+                fixed = vocab.correct(term)
+                if fixed:
+                    corrections[term] = fixed
+
+        if corrections:
+            corrected_text = _rewrite_query(query, corrections)
+
+            if not found["results"]:
+                corrected_parsed = _correct_parsed(parsed, corrections)
+                retry = _run_search(corrected_parsed, db_path, top_n)
+                if retry["results"]:
+                    outcome.update(retry)
+                    outcome["parsed_query"] = corrected_parsed
+                    outcome["corrected_query"] = corrected_text
+            else:
+                outcome["did_you_mean"] = corrected_text
+
+    outcome["search_time_ms"] = round((time.perf_counter() - start_time) * 1000, 2)
+    return outcome
+
+
+# ── Autocomplete ──
+
+
+def suggest(partial, db_path, limit=6):
+    """
+    Complete the last word of what the user is typing, e.g.
+    "machine lea" -> ["machine learning", "machine least", ...].
+    """
+    if not partial or partial.endswith(" "):
+        return []
+
+    vocab = get_vocabulary(db_path)
+    if vocab is None:
+        return []
+
+    # split off the word being typed from everything before it
+    match = re.search(r'(\S+)$', partial)
+    before, last = partial[:match.start()], match.group(1)
+
+    # don't complete operators or the filename: filter
+    if last in ("AND", "OR") or last.lower().startswith("filename:"):
+        return []
+
+    # keep a leading quote so  "machine le  still completes inside the phrase
+    quote = '"' if last.startswith('"') else ''
+    prefix = clean_word(last)
+    if len(prefix) < 2:
+        return []
+
+    previous = None
+    previous_tokens = [clean_word(t) for t in before.split()]
+    previous_tokens = [t for t in previous_tokens if len(t) >= 2 and t not in ("and", "or")]
+    if previous_tokens:
+        previous = previous_tokens[-1]
+
+    words = vocab.complete(prefix, previous_word=previous, limit=limit + 1)
+    # the exact word already typed isn't a useful suggestion
+    words = [w for w in words if w != prefix][:limit]
+
+    return [before + quote + w for w in words]
+
+
 
 
 if __name__ == "__main__":
