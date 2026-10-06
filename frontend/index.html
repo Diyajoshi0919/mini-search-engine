@@ -304,6 +304,16 @@
             margin-bottom: 3px;
         }
 
+        .snippet-page {
+            font-size: 11px;
+            color: #70757a;
+            background: #f1f3f4;
+            border-radius: 6px;
+            padding: 0 6px;
+            margin-right: 6px;
+        }
+        .badge-score { cursor: help; }
+
         /* ── Analytics bar ── */
         .analytics-bar {
             max-width: 640px;
@@ -598,7 +608,7 @@
         <div><code>term1 OR term2</code> — match either term</div>
         <div><code>term1 AND term2</code> — match both (default between words)</div>
         <div><code>filename:notes.txt</code> — only search a specific file</div>
-        <div>Example: <code>filename:python_basics.txt "machine learning" OR java</code></div>
+        <div>Example: <code>filename:python_programming.txt "machine learning" OR java</code></div>
     </div>
 </div>
 
@@ -648,7 +658,7 @@
 
     <div class="upload-page">
         <h2>Document Library</h2>
-        <p>Upload .txt files to make them searchable. Files are indexed automatically after upload.</p>
+        <p>Upload .txt, .md, .pdf or .docx files to make them searchable. You can pick several at once. Files are indexed automatically after upload.</p>
 
         <!-- Drop Zone -->
         <div class="drop-zone" id="drop-zone"
@@ -657,14 +667,14 @@
              ondrop="handleDrop(event)"
              onclick="document.getElementById('file-input').click()">
             <div class="icon">📄</div>
-            <h3>Drag & drop a .txt file here</h3>
-            <p>or click to browse your computer</p>
+            <h3>Drag & drop files here</h3>
+            <p>PDF, Word (.docx), text or Markdown, up to 20 MB · or click to browse</p>
             <button class="browse-btn" onclick="event.stopPropagation(); document.getElementById('file-input').click()">
                 Browse Files
             </button>
         </div>
 
-        <input type="file" id="file-input" accept=".txt" onchange="handleFileSelect(event)" />
+        <input type="file" id="file-input" accept=".txt,.md,.pdf,.docx" multiple onchange="handleFileSelect(event)" />
 
         <!-- Upload Status -->
         <div class="upload-status" id="upload-status">
@@ -824,7 +834,9 @@
             return;
         }
 
-        let html = `<div class="result-count">About <strong>${data.total_results}</strong> result(s) for "<strong>${escapeHtml(data.query)}</strong>"</div>`;
+        const found = data.total_found ?? data.total_results;
+        const shownNote = found > data.total_results ? ` (showing top ${data.total_results})` : '';
+        let html = `<div class="result-count">About <strong>${found}</strong> result(s) for "<strong>${escapeHtml(data.query)}</strong>"${shownNote}</div>`;
 
         for (const r of data.results) {
             const matchBadges = r.matched_words.map(w => `<span class="badge badge-match">${escapeHtml(w)}</span>`).join('');
@@ -832,17 +844,25 @@
             const freqChips = Object.entries(freq)
                 .map(([w, count]) => `<span class="freq-chip">${escapeHtml(w)} <b>×${count}</b></span>`)
                 .join('');
-            const snippets = r.snippets.map(s => `<div class="snippet">${highlightWords(escapeHtml(s), r.matched_words)}</div>`).join('');
+            const details = r.snippet_details || r.snippets.map(text => ({ text }));
+            const snippets = details.map(s => {
+                const page = s.page ? `<span class="snippet-page">p. ${s.page}</span>` : '';
+                return `<div class="snippet">${page}${highlightWords(escapeHtml(s.text), r.matched_words)}</div>`;
+            }).join('');
+            const b = r.score_breakdown;
+            const scoreTitle = b
+                ? `BM25 relevance ${b.bm25} + filename match ${b.filename_boost} + terms close together ${b.proximity_boost}`
+                : '';
 
             html += `
                 <div class="result-card">
                     <div class="result-breadcrumb">
-                        <span class="favicon">📄</span>
+                        <span class="favicon">${fileIcon(r.filename)}</span>
                         <span class="path">documents › ${escapeHtml(r.filename)}</span>
                     </div>
                     <div class="result-filename">${escapeHtml(r.filename)}</div>
                     <div>${snippets}</div>
-                    <div class="result-meta"><span class="badge badge-score">${r.score}</span>${matchBadges}</div>
+                    <div class="result-meta"><span class="badge badge-score" title="${scoreTitle}">${r.score}</span>${matchBadges}</div>
                     <div class="freq-list">${freqChips}</div>
                 </div>`;
         }
@@ -865,36 +885,61 @@
         e.preventDefault();
         document.getElementById('drop-zone').classList.remove('dragover');
         const files = e.dataTransfer.files;
-        if (files.length > 0) uploadFile(files[0]);
+        if (files.length > 0) uploadFiles(files);
     }
 
     function handleFileSelect(e) {
-        const file = e.target.files[0];
-        if (file) uploadFile(file);
+        const files = e.target.files;
+        if (files.length > 0) uploadFiles(files);
         // Reset so same file can be re-uploaded
         e.target.value = '';
     }
 
-    async function uploadFile(file) {
+    const ALLOWED_TYPES = ['.txt', '.md', '.pdf', '.docx'];
+    const MAX_BYTES = 20 * 1024 * 1024;
+
+    function fileExt(name) {
+        const i = name.lastIndexOf('.');
+        return i === -1 ? '' : name.slice(i).toLowerCase();
+    }
+
+    function fileIcon(name) {
+        const ext = fileExt(name);
+        if (ext === '.pdf') return '📕';
+        if (ext === '.docx') return '📘';
+        if (ext === '.md') return '📝';
+        return '📄';
+    }
+
+    async function uploadFiles(fileList) {
+        const all = Array.from(fileList);
+
         // Validate on client side too
-        if (!file.name.endsWith('.txt')) {
-            showToast('Only .txt files are allowed.', 'error');
+        const files = all.filter(f => ALLOWED_TYPES.includes(fileExt(f.name)));
+        const rejected = all.length - files.length;
+        if (files.length === 0) {
+            showToast(`Only ${ALLOWED_TYPES.join(', ')} files are allowed.`, 'error');
+            return;
+        }
+        const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+        if (totalSize > MAX_BYTES) {
+            showToast('Total upload is over 20 MB. Try fewer or smaller files.', 'error');
             return;
         }
 
-        // Show progress bar
         const statusDiv = document.getElementById('upload-status');
         const statusText = document.getElementById('upload-status-text');
         const progressBar = document.getElementById('progress-bar');
 
+        const label = files.length === 1 ? files[0].name : `${files.length} files`;
         statusDiv.classList.add('show');
-        statusText.textContent = `Uploading ${file.name}...`;
+        statusText.textContent = `Uploading ${label}...`;
         progressBar.style.width = '30%';
 
-        // FormData is how browsers send files to a server
-        // It wraps the file in a multipart/form-data request
+        // FormData is how browsers send files to a server.
+        // Every file goes under the same 'file' key; Flask reads them with getlist('file')
         const formData = new FormData();
-        formData.append('file', file);  // 'file' must match what Flask expects
+        files.forEach(f => formData.append('file', f));
 
         try {
             progressBar.style.width = '60%';
@@ -906,13 +951,24 @@
             });
 
             progressBar.style.width = '90%';
-
             const data = await res.json();
 
             if (res.ok && data.success) {
                 progressBar.style.width = '100%';
-                statusText.textContent = `✅ ${file.name} indexed successfully!`;
-                showToast(`"${file.name}" uploaded and indexed!`, 'success');
+                const failedCount = (data.failed || []).length + rejected;
+                const warnings = (data.uploaded || []).filter(u => u.warning);
+
+                statusText.textContent = `✅ ${data.uploaded.length} file(s) indexed` +
+                    (failedCount ? `, ${failedCount} skipped` : '');
+
+                if (warnings.length) {
+                    showToast(`${warnings[0].filename}: ${warnings[0].warning}`, 'error');
+                } else if (failedCount) {
+                    const firstErr = data.failed && data.failed[0];
+                    showToast(firstErr ? `${firstErr.filename}: ${firstErr.error}` : `${failedCount} file(s) had an unsupported type`, 'error');
+                } else {
+                    showToast(`${label} uploaded and indexed!`, 'success');
+                }
                 loadDocuments(); // Refresh the document list
             } else {
                 throw new Error(data.error || 'Upload failed');
@@ -945,13 +1001,13 @@
             countEl.textContent = `${data.total} file${data.total !== 1 ? 's' : ''}`;
 
             if (data.documents.length === 0) {
-                listEl.innerHTML = `<div style="padding:24px; text-align:center; color:#5f6368; font-size:13px;">No documents yet. Upload a .txt file above!</div>`;
+                listEl.innerHTML = `<div style="padding:24px; text-align:center; color:#5f6368; font-size:13px;">No documents yet. Upload a file above!</div>`;
                 return;
             }
 
             listEl.innerHTML = data.documents.map(filename => `
                 <div class="doc-item" id="doc-${CSS.escape(filename)}">
-                    <span class="doc-icon">📄</span>
+                    <span class="doc-icon">${fileIcon(filename)}</span>
                     <span class="doc-name">${escapeHtml(filename)}</span>
                     <button class="delete-btn" onclick="deleteDocument('${escapeHtml(filename)}')" title="Delete">🗑️</button>
                 </div>

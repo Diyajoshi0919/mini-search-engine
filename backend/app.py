@@ -7,14 +7,27 @@ import sqlite3
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from search import search
-from indexer import index_all_documents
+from indexer import (
+    create_database, index_document, remove_document,
+    ensure_index, list_supported_files,
+)
+from extractors import is_supported, SUPPORTED_EXTENSIONS
 
 app = Flask(__name__)
 CORS(app)
 
+# reject anything bigger than 20 MB per request
+app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "data", "search_index.db")
 DOCS_FOLDER = os.path.join(BASE_DIR, "data", "documents")
+
+os.makedirs(DOCS_FOLDER, exist_ok=True)
+
+# builds the index on first start (or after a schema upgrade), so the
+# server works even when search_index.db isn't committed to git
+ensure_index(DOCS_FOLDER, DB_PATH)
 
 
 @app.route('/')
@@ -22,6 +35,7 @@ def home():
     return jsonify({
         "status": "running",
         "message": "Mini Search Engine API is live",
+        "supported_file_types": sorted(SUPPORTED_EXTENSIONS),
         "endpoints": {
             "search": "/search?q=your+query",
             "stats": "/stats",
@@ -50,6 +64,7 @@ def search_endpoint():
     return jsonify({
         "query": query,
         "total_results": len(outcome["results"]),
+        "total_found": outcome.get("total_found", len(outcome["results"])),
         "results": outcome["results"],
         "search_time_ms": outcome["search_time_ms"],
         "parsed_query": outcome["parsed_query"]
@@ -79,6 +94,9 @@ def stats():
     cursor.execute("SELECT filename FROM documents")
     filenames = [row[0] for row in cursor.fetchall()]
 
+    cursor.execute("SELECT file_type, COUNT(*) FROM documents GROUP BY file_type")
+    by_type = {ft: n for ft, n in cursor.fetchall()}
+
     conn.close()
 
     return jsonify({
@@ -86,47 +104,68 @@ def stats():
         "unique_words": word_count,
         "total_words_indexed": total_words_indexed,
         "total_index_entries": entry_count,
-        "files": filenames
+        "files": filenames,
+        "files_by_type": by_type
     })
 
 
 @app.route('/upload', methods=['POST'])
 def upload_document():
-    if 'file' not in request.files:
+    # getlist handles one file or many sent under the same 'file' key
+    files = request.files.getlist('file')
+    files = [f for f in files if f and f.filename]
+
+    if not files:
         return jsonify({"error": "No file sent. Use key 'file' in form data."}), 400
 
-    file = request.files['file']
+    uploaded, failed = [], []
+    conn = create_database(DB_PATH)
 
-    if file.filename == '':
-        return jsonify({"error": "No file selected."}), 400
+    for file in files:
+        # basename strips any path components, blocks path traversal
+        filename = os.path.basename(file.filename)
 
-    if not file.filename.endswith('.txt'):
-        return jsonify({"error": "Only .txt files are allowed."}), 400
+        if not is_supported(filename):
+            failed.append({"filename": filename,
+                           "error": f"Unsupported type. Allowed: {', '.join(sorted(SUPPORTED_EXTENSIONS))}"})
+            continue
 
-    # basename strips any path components, blocks path traversal
-    filename = os.path.basename(file.filename)
-    save_path = os.path.join(DOCS_FOLDER, filename)
+        save_path = os.path.join(DOCS_FOLDER, filename)
+        file.save(save_path)
 
-    file.save(save_path)
-    print(f"Saved: {filename}")
+        try:
+            # only index the new file instead of rebuilding everything
+            words = index_document(conn, save_path, filename)
+            entry = {"filename": filename, "words": words}
+            if words == 0:
+                entry["warning"] = "No readable text found (scanned PDF or empty file?)"
+            uploaded.append(entry)
+        except Exception as e:
+            os.remove(save_path)
+            failed.append({"filename": filename, "error": f"Could not read file: {e}"})
 
-    index_all_documents(DOCS_FOLDER, DB_PATH)
+    conn.close()
 
+    status = 200 if uploaded else 400
     return jsonify({
-        "success": True,
-        "message": f"'{filename}' uploaded and indexed successfully.",
-        "filename": filename
-    })
+        "success": bool(uploaded),
+        "uploaded": uploaded,
+        "failed": failed,
+        "message": f"{len(uploaded)} file(s) indexed, {len(failed)} failed.",
+        # kept for older frontends that expect a single filename
+        "filename": uploaded[0]["filename"] if uploaded else None,
+        "error": failed[0]["error"] if failed and not uploaded else None
+    }), status
+
+
+@app.errorhandler(413)
+def too_large(e):
+    return jsonify({"error": "File too large. Max upload size is 20 MB."}), 413
 
 
 @app.route('/documents')
 def list_documents():
-    if not os.path.exists(DOCS_FOLDER):
-        return jsonify({"documents": []})
-
-    files = [f for f in os.listdir(DOCS_FOLDER) if f.endswith('.txt')]
-    files.sort()
-
+    files = list_supported_files(DOCS_FOLDER)
     return jsonify({
         "total": len(files),
         "documents": files
@@ -142,9 +181,8 @@ def delete_document(filename):
         return jsonify({"error": f"File '{filename}' not found."}), 404
 
     os.remove(file_path)
+    remove_document(DB_PATH, filename)
     print(f"Deleted: {filename}")
-
-    index_all_documents(DOCS_FOLDER, DB_PATH)
 
     return jsonify({
         "success": True,
